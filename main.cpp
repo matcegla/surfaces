@@ -199,6 +199,7 @@ Texture textureFromFile(const std::string& path, GLenum format) {
 glm::vec3 rgb(int r, int g, int b) { return glm::vec3((float)r / 255, (float)g / 255, (float)b / 255); }
 template <typename T> T clamp(T a, T b, T x) { return std::min(std::max(x, a), b); }
 template <typename T> T sgn(T x) { return x < 0 ? -1 : x > 0 ? 1 : 0; }
+template <typename T> T mix(T a, T b, T x) { return x * a + (1 - x) * b; }
 
 std::minstd_rand rng((unsigned long)std::chrono::high_resolution_clock::now().time_since_epoch().count()); // NOLINT(cert-err58-cpp)
 template <typename T> T uniform(T a, T b) { return std::uniform_real_distribution<T>(a, b)(rng); }
@@ -230,9 +231,10 @@ struct CameraFPS {
 			cosf(glm::radians(pitch)) * sinf(glm::radians(yaw))
 		));
 	}
-	void handleKeyboard(float x, float z, float deltaTime) {
+	void handleKeyboard(float x, float y, float z, float deltaTime) {
 		auto cameraSpeed = 20.0f;
 		pos += cameraSpeed * deltaTime * x * right();
+		pos += cameraSpeed * deltaTime * y * up;
 		pos += cameraSpeed * deltaTime * z * -front;
 	}
 	glm::vec3 right() { return glm::cross(front, up); }
@@ -302,6 +304,26 @@ struct Water {
 		glBindVertexArray(0);
 	}
 };
+struct ToggleButton {
+	bool pressed = false;
+	bool handle(int keyresult) {
+		if (pressed) {
+			if (keyresult == GLFW_PRESS) {
+				return false;
+			} else {
+				pressed = false;
+				return false;
+			}
+		} else {
+			if (keyresult == GLFW_PRESS) {
+				pressed = true;
+				return true;
+			} else {
+				return false;
+			}
+		}
+	}
+};
 const glm::vec3 gravity = {0.0f, -9.80665, 0.0f}; // NOLINT(cert-err58-cpp)
 const float waterDensity = 998.23; // kg/m^3
 const float airDensity = 1.225; // kg/m^3
@@ -360,6 +382,8 @@ struct Raft {
 	glm::vec3 position;
 	glm::vec3 velocity;
 	glm::vec3 scale;
+	float rotation;
+	float angularVelocity;
 	float mass;
 	Raft(glm::vec3 position, float mass, glm::vec3 scale, const std::string& vertPath, const std::string& fragPath):
 		vao(),
@@ -370,6 +394,8 @@ struct Raft {
 		position(position),
 		velocity(),
 		scale(scale),
+		rotation(0.0f),
+		angularVelocity(0.0f),
 		mass(mass)
 	{
 		vao.bind();
@@ -378,38 +404,72 @@ struct Raft {
 		glEnableVertexAttribArray(0);
 	}
 
-	static float waveHeightAtPoint(glm::vec3 position, float time) {
-		auto diagonal = position.x + position.z;
-		auto wavePresence = (sinf(diagonal/16) + 1) / 2;
-		auto waveHeight = 8 * (sinf(time + position.z/4) + 1) / 2;
-		return waveHeight;
+	static float waveHeightAtPoint(glm::vec3 vertex_pos, float time) {
+		float diagonal = vertex_pos.x + vertex_pos.z;
+		float wavePresence = (sin(diagonal/16) + 1) / 2;
+		float waveHeight = 8 * (sin(time + vertex_pos.z/4) + 1) / 2;
+		float height = wavePresence * waveHeight;
+		return height;
 	}
-	static glm::vec3 forceAtPoint(glm::vec3 position, glm::vec3 velocity, glm::vec3 scale, float mass, float time) {
+	static glm::vec3 forceAtPoint(glm::vec3 position, float velocity, glm::vec3 scale, float mass, float time) {
 		auto waveHeight = waveHeightAtPoint(position, time);
-		auto y1 = position.y - scale.y / 2;
-		auto y2 = position.y + scale.y / 2;
-		auto submergedHeight = clamp(0.0f, scale.y, waveHeight - y1);
+		auto lowerEdgeY = position.y - scale.y / 2;
+		auto submergedHeight = clamp(0.0f, scale.y, waveHeight - lowerEdgeY);
 		auto displacedWaterVolume = submergedHeight * scale.x * scale.z;
-
-		auto nondrag = mass * gravity - waterDensity * displacedWaterVolume * gravity;
-
-		auto fluidDensity = submergedHeight / scale.y * waterDensity + (1 - submergedHeight) / scale.y * airDensity;
+		auto averageFluidDensity = mix(waterDensity, airDensity, submergedHeight / scale.y);		
 		auto area = scale.x * scale.z;
-		auto dragForce = 0.5f * fluidDensity * powf(velocity.y, 2) * plateDragCoefficient * area;
-		auto dragDirection = -sgn(velocity.y);
-		auto drag = glm::vec3(0.0f, dragDirection * dragForce, 0.0f);
+		auto up = glm::vec3(0.0f, 1.0f, 0.0f);
 
-		return nondrag + drag;
+		auto weight = mass * gravity;
+		auto buoyancy = - waterDensity * displacedWaterVolume * gravity;
+		auto drag = -sgn(velocity) * up * 0.5f * averageFluidDensity * powf(velocity, 2) * plateDragCoefficient * area;
+
+		auto total = weight + buoyancy + drag;
+		return total;
 	}
+	static float dragAtPoint(glm::vec3 position, float velocity, glm::vec3 scale, float mass, float time) {
+		auto waveHeight = waveHeightAtPoint(position, time);
+		auto fluidDensity = position.y > waveHeight ? airDensity : waterDensity;
+		auto area = scale.x * scale.z;
+		auto drag = -sgn(velocity) * 0.5f * fluidDensity * powf(velocity, 2) * plateDragCoefficient * area;
+		return drag;
+	}
+	float computeAngularAcceleration(float time) {
+		auto halfScale = scale;
+		halfScale.z /= 2;
+		auto leftPos = position;
+		leftPos.z -= scale.z / 4 * cosf(rotation);
+		leftPos.y -= scale.z / 4 * sinf(rotation);
+		auto rightPos = position;
+		rightPos.z += scale.z / 4 * cosf(rotation);
+		rightPos.y += scale.z / 4 * sinf(rotation);
 
+		auto leftForce = forceAtPoint(leftPos, velocity.y, halfScale, mass/2, time).y;
+		auto rightForce = forceAtPoint(rightPos, velocity.y, halfScale, mass/2, time).y;
+		auto rightAngDrag = dragAtPoint(rightPos, angularVelocity * scale.z / 4, halfScale, mass/2, time);
+		auto leftAngDrag = dragAtPoint(leftPos, angularVelocity * scale.z / 4, halfScale, mass/2, time);
+
+		auto rightTorque = (rightForce * cosf(rotation) + rightAngDrag) * (scale.z / 4);
+		auto leftTorque = (leftForce * cosf(-rotation) - leftAngDrag) * (scale.z / 4);
+		auto torque = rightTorque - leftTorque;
+
+		auto momentOfInertia = (1.0f / 12) * mass * (powf(scale.z, 2) + powf(scale.y, 2));
+		auto angularAcceleration = torque / momentOfInertia;
+
+		return angularAcceleration;
+	}
 	void update(float deltaTime, float time) {
-		auto force = forceAtPoint(position, velocity, scale, mass, time);
+		auto force = forceAtPoint(position, velocity.y, scale, mass, time);
+		auto angularAcceleration = computeAngularAcceleration(time);
 		velocity += deltaTime * force / mass;
 		position += deltaTime * velocity;
+		angularVelocity += deltaTime * angularAcceleration;
+		rotation += deltaTime * angularVelocity;
 	}
 	void draw(const glm::mat4& transPV) {
 		auto model = glm::mat4(1.0f);
 		model = glm::translate(model, position);
+		model = glm::rotate(model, -rotation, glm::vec3(1.0f, 0.0f, 0.0f));
 		model = glm::scale(model, scale);
 		vao.bind();
 		shader.use();
@@ -421,7 +481,7 @@ struct Raft {
 };
 
 auto screen = ScreenInfo { 800, 600 };
-auto camera = CameraFPS({50.0f, 20.0f, 50.0f}); // NOLINT(cert-err58-cpp)
+auto camera = CameraFPS({470.0f, 10.0f, 500.0f}); // NOLINT(cert-err58-cpp)
 
 int main() {
     
@@ -451,22 +511,34 @@ int main() {
 
 	auto water = Water(1000, 1000, "water.vert", "water.frag");
 	auto raftScale = glm::vec3(10.0f, 0.5f, 10.0f);
-	auto raft = Raft({100.0f, 10.0f, 45.0f}, raftScale.x * raftScale.y * raftScale.z * woodDensity, raftScale, "raft.vert", "raft.frag");
+	auto raft = Raft({500.0f, 6.0f, 500.0f}, raftScale.x * raftScale.y * raftScale.z * woodDensity, raftScale, "raft.vert", "raft.frag");
 
 	auto backgroundColor = rgb(0x00, 0x2b, 0x36);
 	auto lastTime = (float)glfw.time();
+	auto cameraTime = lastTime;
+	auto physicsTime = lastTime;
+	auto paused = false;
+	auto pauseButton = ToggleButton{};
 
 	while (not window.shouldClose()) {
 
         // handle input
 
-		auto time = (float)glfw.time();
-		auto deltaTime = time - lastTime;
-		lastTime = time;
+		auto cameraDeltaTime = [&](){
+			auto time = (float)glfw.time();
+			auto deltaTime = time - lastTime;
+			lastTime = time;
+			return deltaTime;
+		}();
+		auto physicsDeltaTime = paused ? 0.0f : cameraDeltaTime;
+		cameraTime += cameraDeltaTime;
+		physicsTime += physicsDeltaTime;
 
 		if (window.getKey(GLFW_KEY_ESCAPE) == GLFW_PRESS)
             window.setShouldClose(true);
-		camera.handleKeyboard(window.xkeyjoy(GLFW_KEY_D, GLFW_KEY_A), window.xkeyjoy(GLFW_KEY_S, GLFW_KEY_W), deltaTime);
+		if (pauseButton.handle(window.getKey(GLFW_KEY_SPACE)))
+			paused = not paused;
+		camera.handleKeyboard(window.xkeyjoy(GLFW_KEY_D, GLFW_KEY_A), window.xkeyjoy(GLFW_KEY_E, GLFW_KEY_Q), window.xkeyjoy(GLFW_KEY_S, GLFW_KEY_W), cameraDeltaTime);
 
 		auto view = camera.viewMatrix();
 		auto projection = glm::perspective(glm::radians(45.0f), (float)screen.width / screen.height, 0.1f, 3000.0f);
@@ -477,8 +549,8 @@ int main() {
         glClearColor(backgroundColor.x, backgroundColor.y, backgroundColor.z, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        water.draw(time, transPV);
-        raft.update(deltaTime, time);
+        water.draw(physicsTime, transPV);
+        raft.update(physicsDeltaTime, physicsTime);
         raft.draw(transPV);
 
         // swap buffers
