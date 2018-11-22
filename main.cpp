@@ -93,7 +93,7 @@ struct VAO {
 struct VBO {
     VBO():id(0) { glGenBuffers(1, &id); }
     void bindBuffer(GLenum target) { glBindBuffer(target, id); }
-    template <unsigned n> void xbindAndBufferStatic(float(&vertices)[n]) {
+    template <unsigned n> void xbindAndBufferStatic(const float(&vertices)[n]) {
         xbindAndBufferStatic(vertices, n);
     }
     void xbindAndBufferStatic(const std::vector<float>& vertices) {
@@ -126,6 +126,10 @@ struct GLFW {
 	void pollEvents() { glfwPollEvents(); }
 	void terminate() { glfwTerminate(); }
 	double time() { return glfwGetTime(); }
+	void xhintContextVersion(int major, int minor) {
+		windowHint(GLFW_CONTEXT_VERSION_MAJOR, major);
+		windowHint(GLFW_CONTEXT_VERSION_MINOR, minor);
+	}
 };
 struct Image {
 	int width, height, channelCount;
@@ -196,10 +200,16 @@ Texture textureFromFile(const std::string& path, GLenum format) {
 	glGenerateMipmap(GL_TEXTURE_2D);
 	return tex;
 }
+void loadGLAD() {
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+		lg.error("failed to initialize GLAD\n");
+		std::exit(-1);
+	}
+}
 glm::vec3 rgb(int r, int g, int b) { return glm::vec3((float)r / 255, (float)g / 255, (float)b / 255); }
-template <typename T> T clamp(T a, T b, T x) { return std::min(std::max(x, a), b); }
-template <typename T> T sgn(T x) { return x < 0 ? -1 : x > 0 ? 1 : 0; }
-template <typename T> T mix(T a, T b, T x) { return x * a + (1 - x) * b; }
+float clamp(float a, float b, float x) { return std::min(std::max(x, a), b); }
+float sgn(float x) { return x < 0 ? -1 : x > 0 ? 1 : 0; }
+float mix(float a, float b, float x) { return x * a + (1 - x) * b; }
 
 std::minstd_rand rng((unsigned long)std::chrono::high_resolution_clock::now().time_since_epoch().count()); // NOLINT(cert-err58-cpp)
 template <typename T> T uniform(T a, T b) { return std::uniform_real_distribution<T>(a, b)(rng); }
@@ -242,24 +252,15 @@ struct CameraFPS {
 		return glm::lookAt(pos, pos + front, up);
 	}
 };
-std::vector<glm::vec3> placeCubes(int n, float r) {
-	auto cubes = std::vector<glm::vec3>();
-	while ((int)cubes.size() < n) {
-		auto cube = glm::vec3(uniform(-r, r), uniform(-r, r), uniform(-r, r));
-		if (glm::length(cube) <= r and std::all_of(cubes.begin(), cubes.end(), [&cube](auto other){ return glm::length(other - cube) > std::sqrt(3.0f); }))
-			cubes.push_back(cube);
-	}
-	return cubes;
-}
 struct Water {
 	VAO vao;
 	VBO vbo;
 	EBO ebo;
 	Program shader;
-	Uniform utime, upv, umodel;
+	Uniform utime, upv, umodel, uviewpos;
 	std::vector<float> vertices;
 	std::vector<unsigned> indices;
-	Water(unsigned width, unsigned depth, const std::string& vertPath, const std::string& fragPath):
+	Water(unsigned width, unsigned depth, const std::string& vertPath, const std::string& fragPath, glm::vec3 sunPos):
 		vao(),
 		vbo(),
 		ebo(),
@@ -267,8 +268,9 @@ struct Water {
 		utime(shader.locateUniform("time")),
 		upv(shader.locateUniform("trans_pv")),
 		umodel(shader.locateUniform("trans_model")),
+		uviewpos(shader.locateUniform("view_pos")),
 		vertices(),
-		indices()
+		indices(2*3*width*depth)
 	{
 		for (auto x=0; x<width+1; ++x) {
 			for (auto z=0; z<depth+1; ++z) {
@@ -276,12 +278,12 @@ struct Water {
 				vertices.push_back(0);
 				vertices.push_back((float)z);
 				if (x < width and z < depth) {
-					indices.push_back((unsigned)((width+1)*x+z));
-					indices.push_back((unsigned)((width+1)*x+z+1));
-					indices.push_back((unsigned)((width+1)*(x+1)+z));
-//					indices.push_back((unsigned)((gridWidth+1)*x+z+1));
-//					indices.push_back((unsigned)((gridWidth+1)*(x+1)+z));
-//					indices.push_back((unsigned)((gridWidth+1)*(x+1)+z+1));
+					indices[3*(x*depth+z)] = ((unsigned)((width+1)*x+z));
+					indices[3*(x*depth+z)+1] = ((unsigned)((width+1)*x+z+1));
+					indices[3*(x*depth+z)+2] = ((unsigned)((width+1)*(x+1)+z));
+					indices[3*(x*depth+z)+3*width*depth] = ((unsigned)((width+1)*x+z+1));
+					indices[3*(x*depth+z)+3*width*depth+1] = ((unsigned)((width+1)*(x+1)+z));
+					indices[3*(x*depth+z)+3*width*depth+2] = ((unsigned)((width+1)*(x+1)+z+1));
 				}
 			}
 		}
@@ -294,35 +296,33 @@ struct Water {
 
 		shader.use();
 		umodel = glm::mat4(1.0f);
+		shader.locateUniform("sun.pos") = sunPos;
+		shader.locateUniform("sun.color") = glm::vec3(1.0f);
 	}
-	void draw(float time, const glm::mat4& transPV) {
+	void draw(float time, const glm::mat4& transPV, glm::vec3 viewPos, bool transparent) {
 		vao.bind();
 		shader.use();
 		utime = time;
 		upv = transPV;
-		glDrawElements(GL_TRIANGLES, (unsigned)indices.size(), GL_UNSIGNED_INT, nullptr);
+		uviewpos = viewPos;
+		glDrawElements(GL_TRIANGLES, (unsigned)indices.size() / (transparent ? 2 : 1), GL_UNSIGNED_INT, nullptr);
 		glBindVertexArray(0);
 	}
 };
 struct ToggleButton {
-	bool pressed = false;
-	bool handle(int keyresult) {
-		if (pressed) {
-			if (keyresult == GLFW_PRESS) {
-				return false;
-			} else {
-				pressed = false;
-				return false;
-			}
-		} else {
-			if (keyresult == GLFW_PRESS) {
-				pressed = true;
-				return true;
-			} else {
-				return false;
-			}
+	bool state;
+	bool pressed;
+	explicit ToggleButton(bool initialState):state(initialState),pressed(false){}
+	bool update(int keyresult) {
+		if (pressed and keyresult != GLFW_PRESS)
+			pressed = false;
+		else if (not pressed and keyresult == GLFW_PRESS) {
+			pressed = true, state = not state;
+			return true;
 		}
+		return false;
 	}
+	bool operator*() { return state; }
 };
 const glm::vec3 gravity = {0.0f, -9.80665, 0.0f}; // NOLINT(cert-err58-cpp)
 const float waterDensity = 998.23; // kg/m^3
@@ -330,53 +330,67 @@ const float airDensity = 1.225; // kg/m^3
 const float woodDensity = 600.0f;
 const float plateDragCoefficient = 1.17;
 
-float cubeVertices[] = {
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-	0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-	0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+struct CubeVertices {
+	VBO vbo;
+	VAO vao;
+	CubeVertices():vbo(),vao(){
+		vao.bind();
+		vbo.xbindAndBufferStatic(rawData);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)(0 * sizeof(float)));
+		glEnableVertexAttribArray(0);
+	}
+	void draw() {
+		vao.bind();
+		glDrawArrays(GL_TRIANGLES, 0, arraySize(rawData));
+		glBindVertexArray(0);
+	}
+	static constexpr float rawData[] = {
+		-0.5f, -0.5f, -0.5f,
+		0.5f, -0.5f, -0.5f,
+		0.5f, 0.5f, -0.5f,
+		0.5f, 0.5f, -0.5f,
+		-0.5f, 0.5f, -0.5f,
+		-0.5f, -0.5f, -0.5f,
 
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+		-0.5f, -0.5f, 0.5f,
+		0.5f, -0.5f, 0.5f,
+		0.5f, 0.5f, 0.5f,
+		0.5f, 0.5f, 0.5f,
+		-0.5f, 0.5f, 0.5f,
+		-0.5f, -0.5f, 0.5f,
 
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+		-0.5f, 0.5f, 0.5f,
+		-0.5f, 0.5f, -0.5f,
+		-0.5f, -0.5f, -0.5f,
+		-0.5f, -0.5f, -0.5f,
+		-0.5f, -0.5f, 0.5f,
+		-0.5f, 0.5f, 0.5f,
 
-	0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+		0.5f, 0.5f, 0.5f,
+		0.5f, 0.5f, -0.5f,
+		0.5f, -0.5f, -0.5f,
+		0.5f, -0.5f, -0.5f,
+		0.5f, -0.5f, 0.5f,
+		0.5f, 0.5f, 0.5f,
 
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-	0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+		-0.5f, -0.5f, -0.5f,
+		0.5f, -0.5f, -0.5f,
+		0.5f, -0.5f, 0.5f,
+		0.5f, -0.5f, 0.5f,
+		-0.5f, -0.5f, 0.5f,
+		-0.5f, -0.5f, -0.5f,
 
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-	0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+		-0.5f, 0.5f, -0.5f,
+		0.5f, 0.5f, -0.5f,
+		0.5f, 0.5f, 0.5f,
+		0.5f, 0.5f, 0.5f,
+		-0.5f, 0.5f, 0.5f,
+		-0.5f, 0.5f, -0.5f,
+	};
 };
 
 struct Raft {
-	VAO vao;
-	VBO vbo;
+	CubeVertices& cubev;
 	Program shader;
 	Uniform upv, umodel;
 	glm::vec3 position;
@@ -385,9 +399,8 @@ struct Raft {
 	float rotation;
 	float angularVelocity;
 	float mass;
-	Raft(glm::vec3 position, float mass, glm::vec3 scale, const std::string& vertPath, const std::string& fragPath):
-		vao(),
-		vbo(),
+	Raft(glm::vec3 position, float mass, glm::vec3 scale, const std::string& vertPath, const std::string& fragPath, CubeVertices& cubev):
+		cubev(cubev),
 		shader(shaderProgramFromFiles(vertPath, fragPath)),
 		upv(shader.locateUniform("trans_pv")),
 		umodel(shader.locateUniform("trans_model")),
@@ -398,17 +411,13 @@ struct Raft {
 		angularVelocity(0.0f),
 		mass(mass)
 	{
-		vao.bind();
-		vbo.xbindAndBufferStatic(cubeVertices);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(0 * sizeof(float)));
-		glEnableVertexAttribArray(0);
 	}
 
 	static float waveHeightAtPoint(glm::vec3 vertex_pos, float time) {
-		float diagonal = vertex_pos.x + vertex_pos.z;
-		float wavePresence = (sin(diagonal/16) + 1) / 2;
-		float waveHeight = 8 * (sin(time + vertex_pos.z/4) + 1) / 2;
-		float height = wavePresence * waveHeight;
+		float wavePresence = (sinf((vertex_pos.x + vertex_pos.z + time)/16) + 1) / 2;
+		float x = vertex_pos.z / 8 + vertex_pos.x / 32 + time / 2;
+		float height = 4 * wavePresence * (sinf(x) + sinf(2*x) + sinf(3*x));
+//		float height = 0;
 		return height;
 	}
 	static glm::vec3 forceAtPoint(glm::vec3 position, float velocity, glm::vec3 scale, float mass, float time) {
@@ -471,34 +480,51 @@ struct Raft {
 		model = glm::translate(model, position);
 		model = glm::rotate(model, -rotation, glm::vec3(1.0f, 0.0f, 0.0f));
 		model = glm::scale(model, scale);
-		vao.bind();
 		shader.use();
 		upv = transPV;
 		umodel = model;
-		glDrawArrays(GL_TRIANGLES, 0, arraySize(cubeVertices));
-		glBindVertexArray(0);
+		cubev.draw();
+	}
+};
+struct Sun {
+	CubeVertices& cubev;
+	Program shader;
+	Uniform upv, umodel;
+	glm::vec3 position;
+	glm::vec3 scale;
+	Sun(glm::vec3 position, glm::vec3 scale, const std::string& vertPath, const std::string& fragPath, CubeVertices& cubev):
+		cubev(cubev),
+		shader(shaderProgramFromFiles(vertPath, fragPath)),
+		upv(shader.locateUniform("trans_pv")),
+		umodel(shader.locateUniform("trans_model")),
+		position(position),
+		scale(scale)
+	{}
+	void draw(const glm::mat4& transPV) {
+		auto model = glm::mat4(1.0f);
+		model = glm::translate(model, position);
+		model = glm::scale(model, scale);
+		shader.use();
+		upv = transPV;
+		umodel = model;
+		cubev.draw();
 	}
 };
 
-auto screen = ScreenInfo { 800, 600 };
+auto screen = ScreenInfo { 1920, 1080 };
 auto camera = CameraFPS({470.0f, 10.0f, 500.0f}); // NOLINT(cert-err58-cpp)
 
 int main() {
-    
 	auto glfw = GLFW();
-	glfw.windowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfw.windowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfw.xhintContextVersion(3, 3);
 	glfw.windowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
     auto window = Window(screen.width, screen.height, "Surfaces", nullptr, nullptr);
     window.makeContextCurrent();
-
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        lg.error("failed to initialize GLAD\n");
-        return -1;
-    }
-
-    glViewport(0, 0, 800, 600);
+    auto icon = Image::load("icon2.png");
+    GLFWimage icons[1] = {GLFWimage{icon.width, icon.height, icon.data}};
+    glfwSetWindowIcon(window.ptr, 1, icons);
+    loadGLAD();
+    glViewport(0, 0, screen.width, screen.height);
     glEnable(GL_DEPTH_TEST);
 	window.onFramebufferSize([](GLFWwindow *, int width, int height) {
 		lg.info("resizing to ", width, " ", height, "\n");
@@ -509,16 +535,18 @@ int main() {
 	window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	window.onCursorPos([](GLFWwindow*, double xpos, double ypos){ camera.handleCursorPos((float)xpos, (float)ypos); });
 
-	auto water = Water(1000, 1000, "water.vert", "water.frag");
+	auto cubeVertices = CubeVertices();
+	auto sun = Sun({550.0f, 30.0f, 550.0f}, {10.0f, 10.0f, 10.0f}, "standard.vert", "sun.frag", cubeVertices);
+	auto water = Water(1000, 1000, "water.vert", "water.frag", sun.position);
 	auto raftScale = glm::vec3(10.0f, 0.5f, 10.0f);
-	auto raft = Raft({500.0f, 6.0f, 500.0f}, raftScale.x * raftScale.y * raftScale.z * woodDensity, raftScale, "raft.vert", "raft.frag");
+	auto raft = Raft({500.0f, 6.0f, 500.0f}, raftScale.x * raftScale.y * raftScale.z * woodDensity, raftScale, "standard.vert", "raft.frag", cubeVertices);
 
 	auto backgroundColor = rgb(0x00, 0x2b, 0x36);
 	auto lastTime = (float)glfw.time();
 	auto cameraTime = lastTime;
 	auto physicsTime = lastTime;
-	auto paused = false;
-	auto pauseButton = ToggleButton{};
+	auto paused = ToggleButton(false);
+	auto transparent = ToggleButton(false);
 
 	while (not window.shouldClose()) {
 
@@ -530,14 +558,15 @@ int main() {
 			lastTime = time;
 			return deltaTime;
 		}();
-		auto physicsDeltaTime = paused ? 0.0f : cameraDeltaTime;
+		auto physicsDeltaTime = *paused ? 0.0f : cameraDeltaTime;
 		cameraTime += cameraDeltaTime;
 		physicsTime += physicsDeltaTime;
 
 		if (window.getKey(GLFW_KEY_ESCAPE) == GLFW_PRESS)
             window.setShouldClose(true);
-		if (pauseButton.handle(window.getKey(GLFW_KEY_SPACE)))
-			paused = not paused;
+		paused.update(window.getKey(GLFW_KEY_SPACE));
+		transparent.update(window.getKey(GLFW_KEY_F3));
+
 		camera.handleKeyboard(window.xkeyjoy(GLFW_KEY_D, GLFW_KEY_A), window.xkeyjoy(GLFW_KEY_E, GLFW_KEY_Q), window.xkeyjoy(GLFW_KEY_S, GLFW_KEY_W), cameraDeltaTime);
 
 		auto view = camera.viewMatrix();
@@ -549,9 +578,10 @@ int main() {
         glClearColor(backgroundColor.x, backgroundColor.y, backgroundColor.z, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        water.draw(physicsTime, transPV);
+        water.draw(physicsTime, transPV, camera.pos, *transparent);
         raft.update(physicsDeltaTime, physicsTime);
         raft.draw(transPV);
+        sun.draw(transPV);
 
         // swap buffers
 
