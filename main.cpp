@@ -170,6 +170,7 @@ glm::vec3 rgb(int r, int g, int b) { return glm::vec3((float)r / 255, (float)g /
 float clamp(float a, float b, float x) { return std::min(std::max(x, a), b); }
 float sgn(float x) { return x < 0 ? -1 : x > 0 ? 1 : 0; }
 float mix(float a, float b, float x) { return x * a + (1 - x) * b; }
+glm::vec3 mix(glm::vec3 a, glm::vec3 b, float x) { return x * a + (1 - x) * b; }
 std::minstd_rand rng((unsigned long)std::chrono::high_resolution_clock::now().time_since_epoch().count()); // NOLINT(cert-err58-cpp)
 float uniform(float a, float b) { return std::uniform_real_distribution<float>(a, b)(rng); }
 glm::vec2 enorm(glm::vec2 v) { return glm::length(v) == 0.0f ? glm::vec2() : glm::normalize(v); }
@@ -468,25 +469,21 @@ struct RaftPhysics {
 	}
 	static glm::vec2 rotate90(glm::vec2 v) { return glm::vec2(-v.y, v.x); }
 
+	static float computeTorque(glm::vec3 application, glm::vec3 axis, glm::vec2 velocity, glm::vec3 scale, float rotation, float angularVelocity, float mass, float time) {
+		auto r = glm::length(application - axis);
+		auto vel = velocity + angularVelocity * r * enorm(rotate90(map2d(application - axis)));
+		auto force = forceAtPoint(application, vel, scale, rotation, mass, time);
+		auto arm = -sgn(glm::dot(glm::vec3(0.0f, sinf(rotation), cosf(rotation)), application - axis));
+		auto torque = arm * (force.x * sinf(rotation) - force.y * cosf(rotation)) * r;
+		return torque;
+	}
 	float computeAngularAcceleration(float time) {
-		auto halfScale = scale;
-		halfScale.z /= 2;
-		auto leftPos = position;
-		leftPos.z -= scale.z / 4 * cosf(rotation);
-		leftPos.y -= scale.z / 4 * sinf(rotation);
-		auto rightPos = position;
-		rightPos.z += scale.z / 4 * cosf(rotation);
-		rightPos.y += scale.z / 4 * sinf(rotation);
+		auto halfScale = scale * glm::vec3(1.0f, 1.0f, 0.5f);
+		auto leftVerge = position - scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
+		auto rightVerge = position + scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
 
-		auto v2d = glm::vec2(0.0f, velocity.y);
-		auto leftVel = v2d + angularVelocity * (scale.z/4) * enorm(rotate90(map2d(leftPos - position)));
-		auto rightVel = v2d + angularVelocity * (scale.z/4) * enorm(rotate90(map2d(rightPos - position)));
-
-		auto leftForce = forceAtPoint(leftPos, leftVel, halfScale, rotation, mass/2, time);
-		auto rightForce = forceAtPoint(rightPos, rightVel, halfScale, rotation, mass/2, time);
-
-		auto leftTorque = (- leftForce.y * cosf(rotation) + leftForce.x * sinf(rotation)) * (scale.z / 4);
-		auto rightTorque = (- rightForce.x * sinf(rotation) + rightForce.y * cosf(rotation)) * (scale.z / 4);
+		auto leftTorque = computeTorque(mix(leftVerge, rightVerge, 0.25f), position, velocity, halfScale, rotation, angularVelocity, mass/2, time);
+		auto rightTorque = computeTorque(mix(leftVerge, rightVerge, 0.75f), position, velocity, halfScale, rotation, angularVelocity, mass/2, time);
 
 		auto torque = leftTorque + rightTorque;
 		auto momentOfInertia = (1.0f / 12) * mass * (powf(scale.z, 2) + powf(scale.y, 2));
