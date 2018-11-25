@@ -94,7 +94,10 @@ struct Texture {
 	void xactivateAndBind(GLenum slot, GLenum target);
 	unsigned id;
 };
-struct ScreenInfo { int width, height; };
+struct ScreenInfo {
+	int width, height;
+	float aspectRatio();
+};
 
 std::string readFile(const std::string& path);
 Shader shaderFromFile(const std::string& path, GLenum type);
@@ -102,6 +105,7 @@ Program shaderProgramFromShaders(const Shader& vertex, const Shader& fragment);
 Program shaderProgramFromFiles(const std::string& vertexPath, const std::string& fragmentPath);
 Texture textureFromFile(const std::string& path, GLenum format);
 void loadGLAD();
+void xclear(glm::vec3 backgroundColor);
 
 struct ToggleButton {
 	bool state;

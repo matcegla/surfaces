@@ -38,3 +38,11 @@ glm::vec3 CameraFPS::right() { return glm::cross(front, up); }
 glm::mat4 CameraFPS::viewMatrix() {
 	return glm::lookAt(pos, pos + front, up);
 }
+
+glm::mat4 CameraFPS::projectionMatrix(float aspectRatio) {
+	return glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 3000.0f);
+}
+
+glm::mat4 CameraFPS::viewProjectionMatrix(float aspectRatio) {
+	return projectionMatrix(aspectRatio) * viewMatrix();
+}

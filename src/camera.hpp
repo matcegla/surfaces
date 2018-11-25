@@ -11,6 +11,8 @@ struct CameraFPS {
 	void handleKeyboard(float x, float y, float z, float deltaTime);
 	glm::vec3 right();
 	glm::mat4 viewMatrix();
+	glm::mat4 projectionMatrix(float aspectRatio);
+	glm::mat4 viewProjectionMatrix(float aspectRatio);
 
 	glm::vec3 pos, up, front;
 	float yaw, pitch;

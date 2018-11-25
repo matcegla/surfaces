@@ -165,6 +165,11 @@ void loadGLAD() {
 	}
 }
 
+void xclear(glm::vec3 backgroundColor) {
+	glClearColor(backgroundColor.x, backgroundColor.y, backgroundColor.z, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
 ToggleButton::ToggleButton(bool initialState):state(initialState),pressed(false){}
 bool ToggleButton::update(int keyresult) {
 		if (pressed and keyresult != GLFW_PRESS)
@@ -177,3 +182,6 @@ bool ToggleButton::update(int keyresult) {
 	}
 bool ToggleButton::operator*() { return state; }
 
+float ScreenInfo::aspectRatio() {
+	return (float)width / height;
+}
