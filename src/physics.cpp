@@ -98,8 +98,8 @@ float RaftPhysics::computeAngularAcceleration(float time) {
 	auto angularAcceleration = torque / momentOfInertia;
 	return angularAcceleration;
 }
-void RaftPhysics::update(float deltaTime, float time) {
-		auto force = forceAtPoint(position, glm::vec2(0.0f, velocity.y), scale, rotation, mass, time);
+void RaftPhysics::update(float deltaTime, float time, glm::vec2 externalForce) {
+		auto force = externalForce + forceAtPoint(position, velocity, scale, rotation, mass, time);
 		auto angularAcceleration = computeAngularAcceleration(time);
 		velocity += deltaTime * force / mass;
 		position += deltaTime * glm::vec3(0.0f, velocity.y, velocity.x);

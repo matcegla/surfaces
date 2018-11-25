@@ -33,7 +33,7 @@ int main() {
 		paused.update(window.getKey(GLFW_KEY_SPACE));
 		transparent.update(window.getKey(GLFW_KEY_F3));
 		camera.handleKeyboard(window.xkeyjoy(GLFW_KEY_D, GLFW_KEY_A), window.xkeyjoy(GLFW_KEY_E, GLFW_KEY_Q), window.xkeyjoy(GLFW_KEY_S, GLFW_KEY_W), time.delta.camera);
-		raft.update(time.delta.physics, time.current.physics);
+		raft.update(time.delta.physics, time.current.physics, 200000.0f * glm::vec2(window.xkeyjoy(GLFW_KEY_RIGHT, GLFW_KEY_LEFT), window.xkeyjoy(GLFW_KEY_UP, GLFW_KEY_DOWN)));
 
 		// render
 		auto transPV = camera.viewProjectionMatrix(screen.aspectRatio());

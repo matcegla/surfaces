@@ -24,7 +24,7 @@ struct RaftPhysics {
 
 	static float computeTorque(glm::vec3 application, glm::vec3 axis, glm::vec2 velocity, glm::vec3 scale, float rotation, float angularVelocity, float mass, float time);
 	float computeAngularAcceleration(float time);
-	void update(float deltaTime, float time);
+	void update(float deltaTime, float time, glm::vec2 externalForce);
 };
 
 #endif //SURFACES_PHYSICS_HPP
