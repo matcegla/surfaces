@@ -8,16 +8,21 @@
 #include "sun.hpp"
 #include "canvas.hpp"
 #include "time.hpp"
+#include "lg.hpp"
+#include "interframebuffer.hpp"
 
-auto screen = ScreenInfo{1920, 1080};
+auto screen = ScreenInfo{1600, 800};
 auto camera = CameraFPS({470.0f, 5.0f, 500.0f}); // NOLINT(cert-err58-cpp)
 
 int main() {
 	auto [glfw, window] = canvas<&screen, &camera>();
+	auto aspectRatio = screen.aspectRatio();
 	auto time = Time();
 	auto paused = ToggleButton(false);
 	auto transparent = ToggleButton(false);
 	auto cubeVertices = CubeVertices();
+	auto quadVertices = QuadVertices();
+	auto interFramebuffer = InterFramebuffer(screen.width, screen.height, "screen.vert", "screen.frag", quadVertices);
 
 	auto sun = Sun({550.0f, 30.0f, 550.0f}, {10.0f, 10.0f, 10.0f}, "standard.vert", "sun.frag", cubeVertices);
 	auto water = Water(1000, 1000, "water.vert", "water.frag", sun.position);
@@ -36,13 +41,16 @@ int main() {
 		raft.update(time.delta.physics, time.current.physics, 200000.0f * glm::vec2(window.xkeyjoy(GLFW_KEY_RIGHT, GLFW_KEY_LEFT), window.xkeyjoy(GLFW_KEY_UP, GLFW_KEY_DOWN)));
 
 		// render
-		auto transPV = camera.viewProjectionMatrix(screen.aspectRatio());
-		xclear(rgb(0x00, 0x2b, 0x36));
+
+		auto transPV = camera.viewProjectionMatrix(aspectRatio);
+		interFramebuffer.prepare();
+		xclear(rgb(0x00, 0x2b, 0x36), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         water.draw(time.current.physics, transPV, camera.pos, *transparent);
         raft.draw(transPV);
         sun.draw(transPV);
 
-        // swap buffers
+        interFramebuffer.copy();
         window.swapBuffers();
         glfw.pollEvents();
 

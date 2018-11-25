@@ -11,4 +11,12 @@ struct CubeVertices {
 	static const float rawData[6*6*3];
 };
 
+struct QuadVertices {
+	VBO vbo;
+	VAO vao;
+	QuadVertices();
+	void draw(Texture& texture);
+	static const float rawData[2*3*4];
+};
+
 #endif //SURFACES_MODELS_HPP

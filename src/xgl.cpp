@@ -121,6 +121,18 @@ void Texture::xactivateAndBind(GLenum slot, GLenum target) {
 	glBindTexture(target, id);
 }
 
+void Texture::unbind(GLenum target) {
+	glBindTexture(target, 0);
+}
+
+void Texture::image2D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void *pixels) {
+	glTexImage2D(target, level, internalFormat, width, height, border, format, type, pixels);
+}
+
+void Texture::parameter(GLenum target, GLenum pname, GLint param) {
+	glTexParameteri(target, pname, param);
+}
+
 std::string readFile(const std::string& path) {
 	std::ostringstream oss;
 	std::ifstream file(path);
@@ -165,9 +177,9 @@ void loadGLAD() {
 	}
 }
 
-void xclear(glm::vec3 backgroundColor) {
+void xclear(glm::vec3 backgroundColor, GLbitfield mask) {
 	glClearColor(backgroundColor.x, backgroundColor.y, backgroundColor.z, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClear(mask);
 }
 
 ToggleButton::ToggleButton(bool initialState):state(initialState),pressed(false){}
@@ -184,4 +196,51 @@ bool ToggleButton::operator*() { return state; }
 
 float ScreenInfo::aspectRatio() {
 	return (float)width / height;
+}
+
+FBO::FBO():id(0){
+	glGenFramebuffers(1, &id);
+}
+
+void FBO::bind(GLenum target) {
+	glBindFramebuffer(target, id);
+}
+
+void FBO::unbind(GLenum target) {
+	glBindFramebuffer(target, 0);
+}
+
+void FBO::texture2D(GLenum target, GLenum attachment, GLenum textarget, Texture &texture, GLint level) {
+	glFramebufferTexture2D(target, attachment, textarget, texture.id, level);
+}
+
+void FBO::renderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, RBO& renderbuffer) {
+	glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer.id);
+}
+
+GLenum FBO::checkStatus(GLenum target) {
+	return glCheckFramebufferStatus(target);
+}
+
+void FBO::xassertComplete(GLenum target) {
+	if (checkStatus(target) != GL_FRAMEBUFFER_COMPLETE) {
+		lg.error("framebuffer not complete");
+		std::exit(-1);
+	}
+}
+
+RBO::RBO():id(0){
+	glGenRenderbuffers(1, &id);
+}
+
+void RBO::bind(GLenum target) {
+	glBindRenderbuffer(target, id);
+}
+
+void RBO::unbind(GLenum target) {
+	glBindRenderbuffer(target, 0);
+}
+
+void RBO::storage(GLenum target, GLenum internalFormat, GLsizei width, GLsizei height) {
+	glRenderbufferStorage(target, internalFormat, width, height);
 }

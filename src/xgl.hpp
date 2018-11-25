@@ -55,6 +55,15 @@ struct Window {
 	void onCursorPos(GLFWcursorposfun callback);
 	GLFWwindow* ptr;
 };
+struct Texture {
+	Texture();
+	void bind(GLenum target);
+	void unbind(GLenum target);
+	void image2D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void* pixels);
+	void parameter(GLenum target, GLenum pname, GLint param);
+	void xactivateAndBind(GLenum slot, GLenum target);
+	unsigned id;
+};
 struct VAO {
 	VAO();
 	void bind();
@@ -80,6 +89,23 @@ struct EBO {
 	void xbindAndBufferStatic(const unsigned* indices, unsigned n);
 	unsigned id;
 };
+struct RBO {
+	RBO();
+	void bind(GLenum target);
+	void unbind(GLenum target);
+	void storage(GLenum target, GLenum internalFormat, GLsizei width, GLsizei height);
+	unsigned id;
+};
+struct FBO {
+	FBO();
+	void bind(GLenum target);
+	void unbind(GLenum target);
+	void texture2D(GLenum target, GLenum attachment, GLenum textarget, Texture& texture, GLint level);
+	void renderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, RBO& renderbuffer);
+	GLenum checkStatus(GLenum target);
+	void xassertComplete(GLenum target);
+	unsigned id;
+};
 struct GLFW {
 	GLFW();
 	void windowHint(int hint, int value);
@@ -87,12 +113,6 @@ struct GLFW {
 	void terminate();
 	double time();
 	void xhintContextVersion(int major, int minor);
-};
-struct Texture {
-	Texture();
-	void bind(GLenum target);
-	void xactivateAndBind(GLenum slot, GLenum target);
-	unsigned id;
 };
 struct ScreenInfo {
 	int width, height;
@@ -105,7 +125,7 @@ Program shaderProgramFromShaders(const Shader& vertex, const Shader& fragment);
 Program shaderProgramFromFiles(const std::string& vertexPath, const std::string& fragmentPath);
 Texture textureFromFile(const std::string& path, GLenum format);
 void loadGLAD();
-void xclear(glm::vec3 backgroundColor);
+void xclear(glm::vec3 backgroundColor, GLbitfield mask);
 
 struct ToggleButton {
 	bool state;
