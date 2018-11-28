@@ -5,15 +5,14 @@
 #include "xgl.hpp"
 #include "models.hpp"
 
-struct InterFramebuffer {
-	InterFramebuffer(int width, int height, const std::string& vert, const std::string& frag, QuadVertices& quad);
+struct Screenbuffer {
+	Screenbuffer(const std::string& vert, const std::string& frag, QuadVertices& quad);
 	void prepare();
-	void copy();
-	Texture texture;
-	RBO rbo;
-	FBO fbo;
+	void render(float x1, float y1, float x2, float y2, Texture& texture);
 	QuadVertices& quad;
 	Program shader;
+	Uniform upos1;
+	Uniform upos2;
 };
 
 #endif //SURFACES_INTERFRAMEBUFFER_HPP

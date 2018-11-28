@@ -27,6 +27,7 @@ struct Shader {
 struct Uniform {
 	void operator=(int x); // NOLINT(misc-unconventional-assign-operator)
 	void operator=(float x); // NOLINT(misc-unconventional-assign-operator)
+	void operator=(const glm::vec2& x); // NOLINE(misc-unconventional-assign-operator)
 	void operator=(const glm::vec3& x); // NOLINT(misc-unconventional-assign-operator)
 	void operator=(const glm::mat4& x); // NOLINT(misc-unconventional-assign-operator)
 	int id;
@@ -68,6 +69,8 @@ struct VAO {
 	VAO();
 	void bind();
 	unsigned id;
+
+	void unbind();
 };
 struct VBO {
 	VBO();

@@ -9,7 +9,7 @@ CubeVertices::CubeVertices():vbo(),vao(){
 void CubeVertices::draw() {
 	vao.bind();
 	glDrawArrays(GL_TRIANGLES, 0, sizeof(rawData)/sizeof(rawData[0]));
-	glBindVertexArray(0);
+	vao.unbind();
 }
 const float CubeVertices::rawData[6*6*3] = {
 	-0.5f, -0.5f, -0.5f,

@@ -1,12 +1,6 @@
-#include "interframebuffer.hpp"
+#include "inter.hpp"
 
-InterFramebuffer::InterFramebuffer(int width, int height, const std::string& vert, const std::string& frag, QuadVertices& quad):
-	texture(),
-	rbo(),
-	fbo(),
-	quad(quad),
-	shader(shaderProgramFromFiles(vert, frag))
-{
+Inter::Inter(int width, int height):texture(),rbo(),fbo(){
 	texture.bind(GL_TEXTURE_2D);
 	texture.image2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
 	texture.parameter(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -22,16 +16,12 @@ InterFramebuffer::InterFramebuffer(int width, int height, const std::string& ver
 	fbo.unbind(GL_FRAMEBUFFER);
 }
 
-void InterFramebuffer::prepare() {
+void Inter::bind() {
 	fbo.bind(GL_FRAMEBUFFER);
 	glEnable(GL_DEPTH_TEST);
-
 }
 
-void InterFramebuffer::copy() {
-	fbo.unbind(GL_FRAMEBUFFER);
-	xclear(glm::vec3(1.0f), GL_COLOR_BUFFER_BIT);
-	shader.use();
+void Inter::unbind() {
 	glDisable(GL_DEPTH_TEST);
-	quad.draw(texture);
+	fbo.unbind(GL_FRAMEBUFFER);
 }

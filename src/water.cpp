@@ -1,5 +1,6 @@
 #include "water.hpp"
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 Water::Water(int width, int depth, const std::string& vertPath, const std::string& fragPath, glm::vec3 sunPos):
 		vao(),
@@ -47,5 +48,5 @@ void Water::draw(float time, const glm::mat4& transPV, glm::vec3 viewPos, bool t
 	upv = transPV;
 	uviewpos = viewPos;
 	glDrawElements(GL_TRIANGLES, (unsigned)indices.size() / (transparent ? 2 : 1), GL_UNSIGNED_INT, nullptr);
-	glBindVertexArray(0);
+	vao.unbind();
 }

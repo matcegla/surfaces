@@ -5,15 +5,15 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Raft::Raft(glm::vec3 position, float mass, glm::vec3 scale, const std::string& vertPath, const std::string& fragPath, CubeVertices& cubev):
+Raft::Raft(glm::vec3 position, float mass, glm::vec3 scale, int probes, const std::string& vertPath, const std::string& fragPath, CubeVertices& cubev):
 		cubev(cubev),
 		shader(shaderProgramFromFiles(vertPath, fragPath)),
 		upv(shader.locateUniform("trans_pv")),
 		umodel(shader.locateUniform("trans_model")),
-		physics(position, scale, mass)
+		physics(position, scale, mass, probes)
 {}
-void Raft::update(float deltaTime, float time, glm::vec2 externalForce) {
-	physics.update(deltaTime, time, externalForce);
+void Raft::update(float deltaTime, float time, glm::vec2 externalForce, float externalTorque) {
+	physics.update(deltaTime, time, externalForce, externalTorque);
 }
 void Raft::draw(const glm::mat4& transPV) {
 	auto model = glm::mat4(1.0f);

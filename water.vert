@@ -14,7 +14,6 @@ float heightAtPoint(vec3 pos) {
     float wavePresence = (sin((pos.x + pos.z + time)/16) + 1) / 2;
     float x = pos.z / 8 + pos.x / 32 + time / 2;
     float height = 4 * wavePresence * (sin(x) + sin(2*x) + sin(3*x));
-//    float height = 0;
     return height;
 }
 

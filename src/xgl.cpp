@@ -24,7 +24,9 @@ void Shader::free() { glDeleteShader(id); }
 void Uniform::operator=(float x) { glUniform1f(id, x); } // NOLINT(misc-unconventional-assign-operator)
 void Uniform::operator=(int x) { glUniform1i(id, x); } // NOLINT(misc-unconventional-assign-operator)
 void Uniform::operator=(const glm::mat4& x) { glUniformMatrix4fv(id, 1, GL_FALSE, glm::value_ptr(x)); } // NOLINT(misc-unconventional-assign-operator)
-void Uniform::operator=(const glm::vec3& x) { glUniform3f(id, x.x, x.y, x.z); } // NOLINT(misc-unconventional-assign-operator)
+void Uniform::operator=(const glm::vec2 &x) { glUniform2f(id, x.x, x.y); } // NOLINT(misc-unconventional-assign-operator)
+void Uniform::operator=(const glm::vec3& x) { glUniform3f(id, x.x, x.y, x.z); }
+
 
 Program::Program():id(glCreateProgram()){}
 void Program::attach(const Shader& shader) { glAttachShader(id, shader.id); }
@@ -70,6 +72,9 @@ void Window::setWindowIcon(GLFWimage& ref) {
 
 VAO::VAO():id(0){ glGenVertexArrays(1, &id); }
 void VAO::bind() { glBindVertexArray(id); }
+void VAO::unbind() {
+	glBindVertexArray(0);
+}
 
 VBO::VBO():id(0) { glGenBuffers(1, &id); }
 void VBO::bindBuffer(GLenum target) { glBindBuffer(target, id); }
