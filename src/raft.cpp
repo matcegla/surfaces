@@ -12,8 +12,8 @@ Raft::Raft(glm::vec3 position, float mass, glm::vec3 scale, int probes, const st
 		umodel(shader.locateUniform("trans_model")),
 		physics(position, scale, mass, probes)
 {}
-void Raft::update(float deltaTime, float time, glm::vec2 externalForce, float externalTorque) {
-	physics.update(deltaTime, time, externalForce, externalTorque);
+void Raft::update(float deltaTime, float time) {
+	physics.update(deltaTime, time);
 }
 void Raft::draw(const glm::mat4& transPV) {
 	auto model = glm::mat4(1.0f);

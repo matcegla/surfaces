@@ -10,6 +10,11 @@ const float waterDensity = 998.23; // kg/m^3
 const float airDensity = 1.225; // kg/m^3
 const float woodDensity = 600.0f;
 
+ForceApplication2::ForceApplication2(glm::vec2 point, glm::vec2 force):
+	point(point),
+	force(force)
+{}
+
 RaftPhysics::RaftPhysics(glm::vec3 position, glm::vec3 scale, float mass, int probes):
 		position(position),
 		velocity(),
@@ -19,21 +24,80 @@ RaftPhysics::RaftPhysics(glm::vec3 position, glm::vec3 scale, float mass, int pr
 		mass(mass),
 		probes(probes)
 {}
-glm::vec2 RaftPhysics::map2d(glm::vec3 v) { return glm::vec2(v.z, v.y); }
-glm::vec2 RaftPhysics::forceAtPoint(glm::vec3 position, glm::vec2 velocity, glm::vec3 scale, float rotation, float mass, float time) {
+
+void RaftPhysics::update(float deltaTime, float time) {
+	auto acceleration = glm::vec2(0.0f, 0.0f);
+	auto torque = 0.0f;
+	auto forces = computeForces(time);
+	for (auto force : forces) {
+		acceleration += force.force / mass * deltaTime;
+		torque += torqueFromForce(force);
+	}
+	auto momentOfInertia = (1.0f / 12) * mass * (powf(scale.z, 2) + powf(scale.y, 2));
+	auto angularAcceleration = torque / momentOfInertia;
+	velocity += deltaTime * acceleration;
+	position += deltaTime * glm::vec3(0.0f, velocity.y, velocity.x);
+	angularVelocity += deltaTime * angularAcceleration;
+	rotation = deltaTime * angularVelocity;
+}
+
+std::vector<ForceApplication2> RaftPhysics::computeForces(float time) {
+	auto forces = std::vector<ForceApplication2>();
+	auto n = probes;
+	auto scalePart = scale * glm::vec3(1.0f, 1.0f, 1.0f / n);
+	auto vergeLeft = position - scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
+	auto vergeRight = position + scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
+	for (auto i=0; i<n; ++i) {
+		// TODO Account for angular velocity. Or maybe account for it inside RaftPart?
+		auto part = RaftPart(mix(vergeLeft, vergeRight, (2.0f*i+1)/(2*n)), scalePart, mass/n, *this);
+		forces.push_back(part.weight());
+		forces.push_back(part.buoyancy(time));
+		forces.push_back(part.drag(time));
+	}
+	return forces;
+}
+
+float RaftPhysics::torqueFromForce(ForceApplication2 applied) {
+	auto application = applied.point;
+	auto axis = map2D(position);
+	auto r = glm::length(application - axis);
+	auto force = applied.force;
+	auto arm = -glm::sign(glm::dot({cosf(rotation), sinf(rotation)}, application - axis));
+	auto torque = arm * (force.x * sinf(rotation) - force.y * cosf(rotation)) * r;
+	return torque;
+}
+
+RaftPart::RaftPart(const glm::vec3& position, const glm::vec3& scale, float mass, const RaftPhysics& whole):
+	position(position),
+	scale(scale),
+	mass(mass),
+	whole(whole)
+{}
+
+ForceApplication2 RaftPart::weight() {
+	auto weight = mass * map2D(gravity);
+	return {position, weight};
+}
+
+ForceApplication2 RaftPart::buoyancy(float time) {
 	auto waveHeight = waveHeightAtPoint(position, time);
-	auto lowerEdgeY = position.y - scale.y / 2;
-	auto submergedHeight = glm::clamp(waveHeight - lowerEdgeY, 0.0f, scale.y);
+	auto submergedHeight = waveHeight > position.y ? scale.y : 0.0f;
 	auto area = scale.x * scale.z;
 	auto displacedWaterVolume = area * submergedHeight;
-
-	auto weight = mass * map2d(gravity);
-	auto buoyancy = - waterDensity * displacedWaterVolume * map2d(gravity);
-	auto drag = dragAtPoint(position, velocity, scale, rotation, time);
-
-	auto total = weight + buoyancy + drag;
-	return total;
+	auto buoyancy = -waterDensity * displacedWaterVolume * map2D(gravity);
+	return {position, buoyancy};
 }
+
+ForceApplication2 RaftPart::drag(float time) {
+	// TODO actually implement drag
+	return {position, {0.0f, 0.0f}};
+}
+
+glm::vec2 map2D(glm::vec3 v) {
+	return {v.z, v.y};
+}
+
+/*
 glm::vec2 RaftPhysics::dragAtPoint(glm::vec3 position, glm::vec2 velocity, glm::vec3 scale, float rotation, float time) {
 	auto waveHeight = waveHeightAtPoint(position, time);
 	auto fluidDensity = position.y > waveHeight ? airDensity : waterDensity;
@@ -77,48 +141,5 @@ glm::vec2 RaftPhysics::dragAtPoint(glm::vec3 position, glm::vec2 velocity, glm::
 	auto drag = -enorm(velocity) * 0.5f * fluidDensity * powf(glm::length(velocity), 2) * dragCoefficient * relarea;
 	return drag;
 }
-glm::vec2 RaftPhysics::rotate90(glm::vec2 v) { return glm::vec2(-v.y, v.x); }
 
-float RaftPhysics::computeTorque(glm::vec3 application, glm::vec3 axis, glm::vec2 velocity, glm::vec3 scale, float rotation, float angularVelocity, float mass, float time) {
-	auto r = glm::length(application - axis);
-	auto vel = velocity + angularVelocity * r * enorm(rotate90(map2d(application - axis)));
-	auto force = forceAtPoint(application, vel, scale, rotation, mass, time);
-	auto arm = -glm::sign(glm::dot(glm::vec3(0.0f, sinf(rotation), cosf(rotation)), application - axis));
-	auto torque = arm * (force.x * sinf(rotation) - force.y * cosf(rotation)) * r;
-	return torque;
-}
-float RaftPhysics::computeAngularAcceleration(float time) {
-	auto n = probes;
-	auto partScale = scale * glm::vec3(1.0f, 1.0f, 1.0f / n);
-	auto leftVerge = position - scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
-	auto rightVerge = position + scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
-	auto torque = 0.0f;
-	for (auto i=0; i<n; ++i)
-		torque += computeTorque(mix(leftVerge, rightVerge, (2.0f*i+1)/(2*n)), position, velocity, partScale, rotation, angularVelocity, mass/n, time);
-	auto angularAcceleration = torque / momentOfInertia();
-	return angularAcceleration;
-}
-void RaftPhysics::update(float deltaTime, float time, glm::vec2 externalForce, float externalTorque) {
-		auto acceleration = externalForce/mass + computeAcceleration(time);
-		auto angularAcceleration = externalTorque/momentOfInertia() + computeAngularAcceleration(time);
-		velocity += deltaTime * acceleration;
-		position += deltaTime * glm::vec3(0.0f, velocity.y, velocity.x);
-		angularVelocity += deltaTime * angularAcceleration;
-		rotation += deltaTime * angularVelocity;
-	}
-
-glm::vec2 RaftPhysics::computeAcceleration(float time) {
-	auto n = probes;
-	auto partScale = scale * glm::vec3(1.0f, 1.0f, 1.0f / n);
-	auto leftVerge = position - scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
-	auto rightVerge = position + scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
-	auto force = glm::vec2();
-	for (auto i=0; i<n; ++i)
-		force += forceAtPoint(mix(leftVerge, rightVerge, (2.0f*i+1)/(2*n)), velocity, partScale, rotation, mass/n, time);
-	auto acceleration = force / mass;
-	return acceleration;
-}
-
-float RaftPhysics::momentOfInertia() {
-	return (1.0f / 12) * mass * (powf(scale.z, 2) + powf(scale.y, 2));
-}
+*/
