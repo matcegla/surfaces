@@ -5,24 +5,19 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/vector_angle.hpp>
 
-const glm::vec3 gravity = {0.0f, -9.80665, 0.0f}; // NOLINT(cert-err58-cpp)
-const float waterDensity = 998.23; // kg/m^3
-const float airDensity = 1.225; // kg/m^3
-const float woodDensity = 600.0f;
-
 ForceApplication2::ForceApplication2(glm::vec2 point, glm::vec2 force):
 	point(point),
 	force(force)
 {}
 
 RaftPhysics::RaftPhysics(glm::vec3 position, glm::vec3 scale, float mass, int probes):
-		position(position),
-		velocity(),
-		scale(scale),
-		rotation(0.0f),
-		angularVelocity(0.0f),
-		mass(mass),
-		probes(probes)
+	position(position),
+	velocity(),
+	scale(scale),
+	rotation(0.0f),
+	angularVelocity(0.0f),
+	mass(mass),
+	probes(probes)
 {}
 
 void RaftPhysics::update(float deltaTime, float time) {
@@ -84,7 +79,7 @@ ForceApplication2 RaftPart::buoyancy(float time) {
 	auto submergedHeight = waveHeight > position.y ? scale.y : 0.0f;
 	auto area = scale.x * scale.z;
 	auto displacedWaterVolume = area * submergedHeight;
-	auto buoyancy = -waterDensity * displacedWaterVolume * map2D(gravity);
+	auto buoyancy = -water.density * displacedWaterVolume * map2D(gravity);
 	return {position, buoyancy};
 }
 
@@ -96,6 +91,11 @@ ForceApplication2 RaftPart::drag(float time) {
 glm::vec2 map2D(glm::vec3 v) {
 	return {v.z, v.y};
 }
+
+const glm::vec3 gravity = {0.0f, -9.80665, 0.0f}; // NOLINT(cert-err58-cpp)
+const Material water = {998.23 };
+const Material air =   {  1.225};
+const Material wood =  {600.0  };
 
 /*
 glm::vec2 RaftPhysics::dragAtPoint(glm::vec3 position, glm::vec2 velocity, glm::vec3 scale, float rotation, float time) {

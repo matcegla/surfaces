@@ -31,7 +31,7 @@ int main() {
 	auto sun = Sun({550.0f, 30.0f, 550.0f}, {10.0f, 10.0f, 10.0f}, "standard.vert", "sun.frag", cubeVertices);
 	auto water = Water(1000, 1000, "water.vert", "water.frag", sun.position);
 	auto raftScale = glm::vec3(10.0f, 0.5f, 10.0f);
-	auto raft = Raft({500.0f, 10.0f, 500.0f}, volume(raftScale) * woodDensity, raftScale, 256, "standard.vert", "raft.frag", cubeVertices);
+	auto raft = Raft({500.0f, 10.0f, 500.0f}, volume(raftScale) * wood.density, raftScale, 256, "standard.vert", "raft.frag", cubeVertices);
 
 	while (not window.shouldClose()) {
 

@@ -5,10 +5,9 @@
 #include <glm/vec3.hpp>
 #include <vector>
 
-extern const glm::vec3 gravity;
-extern const float waterDensity;
-extern const float airDensity;
-extern const float woodDensity;
+struct Material {
+	float density; // kg/m^3
+};
 
 struct ForceApplication2 {
 	glm::vec2 point;
@@ -42,5 +41,10 @@ struct RaftPart {
 };
 
 glm::vec2 map2D(glm::vec3 v);
+
+extern const glm::vec3 gravity;
+extern const Material water;
+extern const Material air;
+extern const Material wood;
 
 #endif //SURFACES_PHYSICS_HPP
