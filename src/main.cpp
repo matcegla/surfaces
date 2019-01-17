@@ -31,7 +31,7 @@ int main() {
 	auto sun = Sun({550.0f, 30.0f, 550.0f}, {10.0f, 10.0f, 10.0f}, "standard.vert", "sun.frag", cubeVertices);
 	auto water = Water(1000, 1000, "water.vert", "water.frag", sun.position);
 	auto raftScale = glm::vec3(10.0f, 0.5f, 10.0f);
-	auto raft = Raft({500.0f, 10.0f, 500.0f}, volume(raftScale) * wood.density, raftScale, 256, "standard.vert", "raft.frag", cubeVertices);
+	auto raft = Raft({500.0f, 10.0f, 500.0f}, volume(raftScale) * wood.density, raftScale, 1, "standard.vert", "raft.frag", cubeVertices);
 
 	while (not window.shouldClose()) {
 
@@ -42,6 +42,7 @@ int main() {
 		paused.update(window.getKey(GLFW_KEY_SPACE));
 		transparent.update(window.getKey(GLFW_KEY_F3));
 		camera.handleKeyboard(window.xkeyjoy(GLFW_KEY_D, GLFW_KEY_A), window.xkeyjoy(GLFW_KEY_E, GLFW_KEY_Q), window.xkeyjoy(GLFW_KEY_S, GLFW_KEY_W), time.delta.camera);
+		raft.physics.rotation += window.xkeyjoy(GLFW_KEY_R, GLFW_KEY_F) * time.delta.physics;
 		raft.update(time.delta.physics, time.current.physics);
 
 		// render

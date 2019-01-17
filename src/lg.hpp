@@ -2,6 +2,7 @@
 #define SURFACES_LG_HPP
 
 #include <iostream>
+#include <vector>
 #include <glm/vec2.hpp>
 
 extern struct Log {
@@ -11,6 +12,14 @@ extern struct Log {
 
 namespace glm {
 	std::ostream &operator<<(std::ostream &out, const glm::vec2& v);
+}
+template <typename T> inline std::ostream& operator<<(std::ostream& out, const std::vector<T>& xs) {
+	out << "[";
+	for (auto i=0; i<(int)xs.size()-1; ++i)
+		out << xs[i] << ", ";
+	if (not xs.empty())
+		out << xs.back();
+	return out << ']';
 }
 
 #endif //SURFACES_LG_HPP
