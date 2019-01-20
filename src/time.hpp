@@ -10,7 +10,7 @@ struct Time {
 	Clocks current;
 	Clocks last;
 	Time();
-	void handle(bool paused, float glfwtime);
+	void handle(bool paused, bool slowmo, float glfwtime);
 };
 
 #endif //SURFACES_TIME_HPP

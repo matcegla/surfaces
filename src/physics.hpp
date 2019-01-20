@@ -44,6 +44,7 @@ struct RaftPart {
 };
 
 glm::vec2 map2D(glm::vec3 v);
+glm::vec3 map3D(glm::vec2 v);
 float acuteAngle(const glm::vec2& a, const glm::vec2& b);
 
 extern const glm::vec3 gravity;
