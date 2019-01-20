@@ -47,12 +47,16 @@ std::vector<ForceApplication2> RaftPhysics::computeForces(float time) {
 	auto scalePart = scale * glm::vec3(1.0f, 1.0f, 1.0f / n);
 	auto vergeLeft = position - scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
 	auto vergeRight = position + scale.z/2 * glm::vec3(0.0f, sinf(rotation), cosf(rotation));
+//	lg.info("\n");
 	for (auto i=0; i<n; ++i) {
 		auto positionPart = mix(vergeLeft, vergeRight, (2.0f*i+1)/(2*n));
 		auto armLength = glm::length(position - positionPart);
 		auto armSign = i < n/2 ? -1 : +1;
 		auto linearVelocity = angularVelocity * armLength * armSign * glm::vec2(cosf(rotation), sinf(rotation));
 		auto part = RaftPart(positionPart, velocity + linearVelocity, scalePart, rotation, mass/n);
+//		lg.info("i = ", i, "\n");
+//		lg.info("  v = ", velocity+linearVelocity, "\n");
+//		lg.info("  Q = ", part.weight(), ", F_w = ", part.buoyancy(time), ", T = ", part.drag(time), "\n");
 		forces.push_back(part.weight());
 		forces.push_back(part.buoyancy(time));
 		forces.push_back(part.drag(time));
@@ -109,11 +113,11 @@ ForceApplication2 RaftPart::drag(float time) {
 		{90.0f, 1.1f},
 	};
 	auto touchPosition = map2D(position) + glm::vec2(cosf(rotation), sinf(rotation)) * scale.y / 2.0f;
-	auto fluidDensity = (touchPosition.y > waveHeightAtPoint(position, time) ? air : water).density;
+	auto underwater = touchPosition.y > waveHeightAtPoint(position, time);
+	auto fluidDensity = (underwater ? air : water).density;
 	// TODO check correctness of angle calculation
-	auto angle = glm::angle(velocity, glm::vec2(cosf(rotation), sinf(rotation)));
-	if (angle > M_PI/2)
-		angle = M_PI - angle;
+	auto angle = acuteAngle(velocity, glm::vec2(cosf(rotation), sinf(rotation)));
+//	lg.info("  raw angle = ", glm::degrees(angle), "°\n");
 	auto relativeArea = scale.x * scale.z * sinf(angle);
 	// TODO check correctness of datum selection
 	auto datum = std::lower_bound(begin(inclinedCoefficients), end(inclinedCoefficients), std::pair(glm::degrees(angle), 0.0f));
@@ -122,11 +126,23 @@ ForceApplication2 RaftPart::drag(float time) {
 	// TODO interpolate between data
 	auto dragCoefficient = datum->second;
 	auto drag = -enorm(velocity) * 0.5f * fluidDensity * powf(glm::length(velocity), 2) * dragCoefficient * relativeArea;
+//	lg.info("  angle=", angle, ", coeff=", dragCoefficient, "\n");
 	return {touchPosition, drag};
 }
 
 glm::vec2 map2D(glm::vec3 v) {
 	return {v.z, v.y};
+}
+
+float acuteAngle(const glm::vec2 &a, const glm::vec2 &b) {
+	auto alpha = atan2f(a.y, a.x);
+	auto beta = atan2f(b.y, b.x);
+	if (alpha < beta)
+		std::swap(alpha, beta);
+	auto d = alpha - beta;
+	if (d > M_PI)
+		d = 2*M_PIf32 - d;
+	return d;
 }
 
 const glm::vec3 gravity = {0.0f, -9.80665, 0.0f}; // NOLINT(cert-err58-cpp)
