@@ -8,9 +8,9 @@ void Debug::point(const glm::vec3& position, const std::string& name) {
 	queuePoints.emplace_back(position, colorTable[name]);
 }
 
-Debug::Debug(const std::string &vertPath, const std::string &fragPath, CubeVertices &cubev, std::map<std::string, glm::vec3> colorTable):
+Debug::Debug(const std::string &vertName, const std::string &fragName, CubeVertices &cubev, std::map<std::string, glm::vec3> colorTable):
 	cubev(cubev),
-	shader(shaderProgramFromFiles(vertPath, fragPath)),
+	shader(shaderProgramFromAsset(vertName, fragName)),
 	upv(shader.locateUniform("trans_pv")),
 	umodel(shader.locateUniform("trans_model")),
 	ucolor(shader.locateUniform("color")),

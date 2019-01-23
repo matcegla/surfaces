@@ -140,7 +140,13 @@ void Texture::parameter(GLenum target, GLenum pname, GLint param) {
 
 std::string readFile(const std::string& path) {
 	std::ostringstream oss;
-	std::ifstream file(path);
+	std::ifstream file;
+	file.open(path);
+	if (file.fail()) {
+		auto error_details = std::string(strerror(errno));
+		lg.error("failed to open file ", path, ": ", error_details);
+		std::exit(1);
+	}
 	file >> oss.rdbuf();
 	return oss.str();
 }
@@ -165,6 +171,9 @@ Program shaderProgramFromFiles(const std::string& vertexPath, const std::string&
 	vertex.free();
 	fragment.free();
 	return program;
+}
+Program shaderProgramFromAsset(const std::string& vertexName, const std::string& fragmentName) {
+	return shaderProgramFromFiles("shaders/"+vertexName+".vert", "shaders/"+fragmentName+".frag");
 }
 Texture textureFromFile(const std::string& path, GLenum format) {
 	auto img = Image::load(path);

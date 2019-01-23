@@ -126,6 +126,7 @@ std::string readFile(const std::string& path);
 Shader shaderFromFile(const std::string& path, GLenum type);
 Program shaderProgramFromShaders(const Shader& vertex, const Shader& fragment);
 Program shaderProgramFromFiles(const std::string& vertexPath, const std::string& fragmentPath);
+Program shaderProgramFromAsset(const std::string& vertexName, const std::string& fragmentName);
 Texture textureFromFile(const std::string& path, GLenum format);
 void loadGLAD();
 void xclear(glm::vec3 backgroundColor, GLbitfield mask);

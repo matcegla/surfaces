@@ -2,11 +2,11 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Water::Water(int width, int depth, const std::string& vertPath, const std::string& fragPath, glm::vec3 sunPos):
+Water::Water(int width, int depth, const std::string& vertName, const std::string& fragName, glm::vec3 sunPos):
 		vao(),
 		vbo(),
 		ebo(),
-		shader(shaderProgramFromFiles(vertPath, fragPath)),
+		shader(shaderProgramFromAsset(vertName, fragName)),
 		utime(shader.locateUniform("time")),
 		upv(shader.locateUniform("trans_pv")),
 		umodel(shader.locateUniform("trans_model")),

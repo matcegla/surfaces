@@ -2,9 +2,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Sun::Sun(glm::vec3 position, glm::vec3 scale, const std::string& vertPath, const std::string& fragPath, CubeVertices& cubev):
+Sun::Sun(glm::vec3 position, glm::vec3 scale, const std::string& vertName, const std::string& fragName, CubeVertices& cubev):
 		cubev(cubev),
-		shader(shaderProgramFromFiles(vertPath, fragPath)),
+		shader(shaderProgramFromAsset(vertName, fragName)),
 		upv(shader.locateUniform("trans_pv")),
 		umodel(shader.locateUniform("trans_model")),
 		position(position),

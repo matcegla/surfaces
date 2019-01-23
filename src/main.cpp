@@ -28,11 +28,11 @@ int main() {
 	auto slowmo = ToggleButton(false);
 	auto cubeVertices = CubeVertices();
 	auto quadVertices = QuadVertices();
-	auto screen = Screenbuffer("screen.vert", "screen.frag", quadVertices);
-	auto screenExtract = Screenbuffer("screen.vert", "screen_bloom_extract.frag", quadVertices);
-	auto screenBlur = Screenbuffer("screen.vert", "screen_bloom_blur.frag", quadVertices);
+	auto screen = Screenbuffer("screen", "screen", quadVertices);
+	auto screenExtract = Screenbuffer("screen", "screen_bloom_extract", quadVertices);
+	auto screenBlur = Screenbuffer("screen", "screen_bloom_blur", quadVertices);
 	auto inter = Inter(monitor.width, monitor.height);
-	auto globalDebug = Debug("debug_point.vert", "debug_point.frag", cubeVertices, {
+	auto globalDebug = Debug("debug_point", "debug_point", cubeVertices, {
 		{"gravity", {1, 0, 0}},
 		{"velocity", {0, 0, 0}},
 		{"buoyancy", {0, 0, 1}},
@@ -43,11 +43,11 @@ int main() {
 	});
 	::debug = &globalDebug;
 
-	auto sun = Sun({550.0f, 30.0f, 550.0f}, {10.0f, 10.0f, 10.0f}, "standard.vert", "sun.frag", cubeVertices);
-	auto water = Water(1000, 1000, "water.vert", "water.frag", sun.position);
+	auto sun = Sun({550.0f, 30.0f, 550.0f}, {10.0f, 10.0f, 10.0f}, "standard", "sun", cubeVertices);
+	auto water = Water(1000, 1000, "water", "water", sun.position);
 	auto raftScale = glm::vec3(10.0f, 0.5f, 10.0f);
-	auto raft = Raft({500.0f, 10.0f, 500.0f}, volume(raftScale) * wood.density, raftScale, 8, "standard.vert", "raft.frag", cubeVertices);
-	auto debugPointShader = shaderProgramFromFiles("debug_point.vert", "debug_point.frag");
+	auto raft = Raft({500.0f, 10.0f, 500.0f}, volume(raftScale) * wood.density, raftScale, 8, "standard", "raft", cubeVertices);
+	auto debugPointShader = shaderProgramFromAsset("debug_point", "debug_point");
 
 	while (not window.shouldClose()) {
 

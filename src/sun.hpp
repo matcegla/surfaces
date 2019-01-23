@@ -10,7 +10,7 @@ struct Sun {
 	Uniform upv, umodel;
 	glm::vec3 position;
 	glm::vec3 scale;
-	Sun(glm::vec3 position, glm::vec3 scale, const std::string& vertPath, const std::string& fragPath, CubeVertices& cubev);
+	Sun(glm::vec3 position, glm::vec3 scale, const std::string& vertName, const std::string& fragName, CubeVertices& cubev);
 	void draw(const glm::mat4& transPV);
 };
 

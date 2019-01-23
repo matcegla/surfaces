@@ -3,7 +3,7 @@
 
 Screenbuffer::Screenbuffer(const std::string& vert, const std::string& frag, QuadVertices& quad):
 	quad(quad),
-	shader(shaderProgramFromFiles(vert, frag)),
+	shader(shaderProgramFromAsset(vert, frag)),
 	upos1(shader.locateUniform("pos1")),
 	upos2(shader.locateUniform("pos2"))
 {
