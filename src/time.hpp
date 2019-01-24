@@ -1,16 +1,17 @@
 #ifndef SURFACES_TIME_HPP
 #define SURFACES_TIME_HPP
 
+struct Clock {
+	float delta;
+	float current;
+};
+
 struct Time {
-	struct Clocks {
-		float camera;
-		float physics;
-	};
-	Clocks delta;
-	Clocks current;
-	Clocks last;
+	Clock camera;
+	Clock physics;
+	float last;
 	Time();
-	void handle(bool paused, bool slowmo, float glfwtime);
+	void handle(bool paused, bool slowmo, float global);
 };
 
 #endif //SURFACES_TIME_HPP

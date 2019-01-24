@@ -45,9 +45,7 @@ int main() {
 
 	auto sun = Sun({550.0f, 30.0f, 550.0f}, {10.0f, 10.0f, 10.0f}, "standard", "sun", cubeVertices);
 	auto water = Water(1000, 1000, "water", "water", sun.position);
-	auto raftScale = glm::vec3(10.0f, 0.5f, 10.0f);
-	auto raft = Raft({500.0f, 10.0f, 500.0f}, volume(raftScale) * wood.density, raftScale, 8, "standard", "raft", cubeVertices);
-	auto debugPointShader = shaderProgramFromAsset("debug_point", "debug_point");
+	auto raft = Raft({500.0f, 10.0f, 500.0f}, wood, {10.0f, 0.5f, 10.0f}, 8, "standard", "raft", cubeVertices);
 
 	while (not window.shouldClose()) {
 
@@ -61,9 +59,8 @@ int main() {
 		wireframe.update(window.getKey(GLFW_KEY_F4));
 		physicsdebug.update(window.getKey(GLFW_KEY_F5));
 		slowmo.update(window.getKey(GLFW_KEY_LEFT_ALT));
-		camera.handleKeyboard(window.xkeyjoy(GLFW_KEY_D, GLFW_KEY_A), window.xkeyjoy(GLFW_KEY_E, GLFW_KEY_Q), window.xkeyjoy(GLFW_KEY_S, GLFW_KEY_W), time.delta.camera);
-		raft.physics.rotation += window.xkeyjoy(GLFW_KEY_R, GLFW_KEY_F) * time.delta.physics;
-		raft.update(time.delta.physics, time.current.physics);
+		camera.handleKeyboard(window.xkeyjoy(GLFW_KEY_D, GLFW_KEY_A), window.xkeyjoy(GLFW_KEY_E, GLFW_KEY_Q), window.xkeyjoy(GLFW_KEY_S, GLFW_KEY_W), time.camera.delta);
+		raft.update(time.physics.delta, time.physics.current);
 
 		// render
 
@@ -73,7 +70,7 @@ int main() {
 		xclear(rgb(0x00, 0x2b, 0x36), GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		if (*wireframe)
         	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        water.draw(time.current.physics, transPV, camera.pos, *transparent);
+        water.draw(time.physics.current, transPV, camera.pos, *transparent);
 		raft.draw(transPV);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         sun.draw(transPV);

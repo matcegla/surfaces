@@ -2,15 +2,16 @@
 #include "models.hpp"
 #include "xgl.hpp"
 #include "physics.hpp"
+#include "math.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Raft::Raft(glm::vec3 position, float mass, glm::vec3 scale, int probes, const std::string& vertName, const std::string& fragName, CubeVertices& cubev):
+Raft::Raft(glm::vec3 position, const Material& material, glm::vec3 scale, int probes, const std::string& vertName, const std::string& fragName, CubeVertices& cubev):
 		cubev(cubev),
 		shader(shaderProgramFromAsset(vertName, fragName)),
 		upv(shader.locateUniform("trans_pv")),
 		umodel(shader.locateUniform("trans_model")),
-		physics(position, scale, mass, probes)
+		physics(position, scale, material.density * volume(scale), probes)
 {}
 void Raft::update(float deltaTime, float time) {
 	physics.update(deltaTime, time);
