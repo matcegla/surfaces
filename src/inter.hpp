@@ -4,12 +4,12 @@
 #include "xgl.hpp"
 
 struct Inter {
-	Inter(int width, int height);
-	void bind();
-	void unbind();
-	Texture texture;
-	RBO rbo;
-	FBO fbo;
+  Inter(int width, int height);
+  void bind();
+  void unbind();
+  Texture texture;
+  RBO rbo;
+  FBO fbo;
 };
 
-#endif //SURFACES_INTER_HPP
+#endif // SURFACES_INTER_HPP

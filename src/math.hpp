@@ -10,4 +10,4 @@ extern std::minstd_rand rng; // NOLINT(cert-err58-cpp)
 float uniform(float a, float b);
 float volume(glm::vec3 v);
 
-#endif //SURFACES_MATH_HPP
+#endif // SURFACES_MATH_HPP

@@ -5,4 +5,4 @@
 
 float waveHeightAtPoint(glm::vec3 vertex_pos, float time);
 
-#endif //SURFACES_WAVE_HPP
+#endif // SURFACES_WAVE_HPP
